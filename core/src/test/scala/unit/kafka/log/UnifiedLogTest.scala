@@ -4270,6 +4270,37 @@ class UnifiedLogTest {
     seg2.close()
   }
 
+  @Test
+  def testOnlyLocalSegmentSizeWithSegmentWithTwoMessages(): Unit = {
+    val log = createLog(logDir, LogTestUtils.createLogConfig(remoteLogStorageEnable = true), remoteStorageSystemEnable = true)
+
+    log.appendAsLeader(MemoryRecords.withRecords(0, Compression.NONE, new SimpleRecord("one".getBytes)), leaderEpoch = 0)
+    log.roll()
+    log.appendAsLeader(MemoryRecords.withRecords(0, Compression.NONE, new SimpleRecord("one".getBytes)), leaderEpoch = 0)
+    log.roll()
+    log.appendAsLeader(MemoryRecords.withRecords(0, Compression.NONE, new SimpleRecord("one".getBytes)), leaderEpoch = 0)
+    log.appendAsLeader(MemoryRecords.withRecords(0, Compression.NONE, new SimpleRecord("two".getBytes)), leaderEpoch = 0)
+    log.updateHighestOffsetInRemoteStorage(1L)
+
+    assertEquals(213, log.onlyLocalLogSegmentsSize)
+    assertEquals(2, log.onlyLocalLogSegmentsCount)
+  }
+
+  @Test
+  def testOnlyLocalSegmentSizeWithHighWatermarkOnBaseOffset(): Unit = {
+    val log = createLog(logDir, LogTestUtils.createLogConfig(remoteLogStorageEnable = true), remoteStorageSystemEnable = true)
+
+    log.appendAsLeader(MemoryRecords.withRecords(0, Compression.NONE, new SimpleRecord("one".getBytes)), leaderEpoch = 0)
+    log.appendAsLeader(MemoryRecords.withRecords(0, Compression.NONE, new SimpleRecord("two".getBytes)), leaderEpoch = 0)
+    log.roll()
+    log.appendAsLeader(MemoryRecords.withRecords(0, Compression.NONE, new SimpleRecord("one".getBytes)), leaderEpoch = 0)
+    log.appendAsLeader(MemoryRecords.withRecords(0, Compression.NONE, new SimpleRecord("two".getBytes)), leaderEpoch = 0)
+    log.updateHighestOffsetInRemoteStorage(1L)
+
+    assertEquals(142, log.onlyLocalLogSegmentsSize)
+    assertEquals(1, log.onlyLocalLogSegmentsCount)
+  }
+
   private def appendTransactionalToBuffer(buffer: ByteBuffer,
                                           producerId: Long,
                                           producerEpoch: Short,

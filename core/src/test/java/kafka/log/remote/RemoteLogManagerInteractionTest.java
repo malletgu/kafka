@@ -308,4 +308,22 @@ public class RemoteLogManagerInteractionTest {
         cleanupTask.run();
         verify(remoteStorageManager, times(1)).deleteLogSegmentData(any());
     }
+
+    @Test
+    void highlightSingleSegmentIssue() throws RemoteStorageException {
+        RemoteLogManager.RLMTask task = remoteLogManager.new RLMCopyTask(topicIdPartition, 128);
+        RemoteLogManager.RLMTask cleanupTask = remoteLogManager.new RLMExpirationTask(topicIdPartition);
+
+        buildSegment(retentionSize - 100);
+        buildSegment(retentionSize - 100);
+        buildSegment(retentionSize / 2);
+        log.maybeUpdateHighWatermark(log.logEndOffset());
+
+        task.run();
+        cleanupTask.run();
+
+        // 2 segments shouldn't be deleted here, doing so means only the last one remains of half the retention
+        // The 2nd segment should be deleted only once more than `retentionSize` bytes are available post-deletion
+        verify(remoteStorageManager, times(2)).deleteLogSegmentData(any());
+    }
 }
